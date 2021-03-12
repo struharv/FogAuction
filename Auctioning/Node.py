@@ -14,7 +14,8 @@ class Node:
 	def addTask(self, app, task):
 		self.tasks += [(app, task)]
 
-
+	def setInfrastructure(self, infrastructure):
+		self.setInfrastructure = infrastructure
 
 	def getNeighbours(self):
 		res = []
@@ -43,26 +44,26 @@ class Node:
 		snode["resources"] = copy.deepcopy(self.resources)
 		snode["tasks"] = copy.deepcopy(self.tasks)
 		return snode	
-	
-	
-	
 
-
-		
 	# Returns available resources
 	def availableResources(self):
 		available = {}
 		for key in self.resources:
 			#print(key, self.resources[key], self.used(key))
-			available[key] = self.resources[key] - self.used(key)
+			available[key] = self.resources[key] - self.usedResource(key)
 		
 		return available
 		
 	#used resource (e.g., "memory")
-	def used(self, resource):
+	def availableResource(self, resource):
+		return self.resources[resource] - self.usedResource(resource)
+
+
+	def usedResource(self, resource):
 		res = 0
 		for task in self.tasks:
-			res += task[resource]  
+			definition = self.infrastructure.getTask(task[0], task[1])
+			res += definition["requirements"][resource]
 		return res
 	
 	
@@ -70,53 +71,56 @@ class Node:
 		pass
 	
 	
-	def createBid(self, application):
+	def createBid(self, tasks):
 		print("createBid", self.availableResources())
 		self.offers = []
-		self.generateOffers(application, [], range(len(application.getTasks())))
+		self.generateOffers([], tasks)
 		
 		return self.offers
 		
-	def _mappingRequires(self, application, mappedTasks):
+	def _mappingRequires(self, offer):
 		res = {}
-		tasks = application.getTasks()
 		for resource in self.resources:
 			total = 0
-			for t in mappedTasks:
-				total += tasks[t].getRequirements()[resource]
+			for o in offer:
+				task = self.infrastructure.getTask(o[0], o[1])
+				total += task["requirements"][resource]
+
 			res[resource] = total
 		return res
-	
-	def _checkMapping(self, application, mappedTasks):
-		required = self._mappingRequires(application, mappedTasks)
+
+	# check if the offer is valid
+	def _checkMapping(self, offer):
+		required = self._mappingRequires(offer)
 		available = self.availableResources()
-		
-		for resource in self.resources:
-			if required[resource] > available[resource]:
-				return False 
-		
+
+		for req in required:
+			if required[req] > available[req]:
+				return False
+
 		return True
 	
-	def generateOffers(self, application, offer, tasks):
+	def generateOffers(self, offer, tasks):
 		
-		#check exceeding
-		if not self._checkMapping(application, offer):
+		# check exceeding
+		if not self._checkMapping(offer):
 			#print("EXCEEDED resource", offer, self.mappingRequires(application, offer))
-			return 
-		
-		
+			return
+
+		# no more tasks
 		if len(tasks) == 0:
 			if len(offer) > 0:
 				self.offers += [offer]
-				print(offer, self._mappingRequires(application, offer))
+				print("offer", offer, self._mappingRequires(offer))
+				#print(offer, self._mappingRequires(application, offer))
 			
 			return
 		
 		# add
 		newoffer = copy.deepcopy(offer)
 		newoffer += [tasks[0]]
-		self.generateOffers(application, newoffer, tasks[1:])
+		self.generateOffers(newoffer, tasks[1:])
 		
 		# dont add
 		newoffer = copy.deepcopy(offer)
-		self.generateOffers(application, newoffer, tasks[1:])
+		self.generateOffers(newoffer, tasks[1:])

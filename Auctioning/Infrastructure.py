@@ -38,6 +38,8 @@ class Infrastructure:
 		for node in self.nodes:
 			pass
 
+
+
 	def getApp(self, app:str):
 		for a in self.applications:
 			if a["name"] == app:
@@ -74,7 +76,9 @@ class Infrastructure:
 		# --- nodes
 		self.nodes = []		
 		for node in dsr["nodes"]:
-			self.nodes += [Node.deserialize(node)]
+			n = Node.deserialize(node)
+			n.setInfrastructure(self)
+			self.nodes += [n]
 		
 		self.applications = copy.deepcopy(dsr["applications"])
 		self.connections = copy.deepcopy(dsr["connections"])	
